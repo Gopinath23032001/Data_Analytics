@@ -141,7 +141,7 @@ Stores daily stock prices.
 - **TSLA** showed ~3x higher daily return volatility compared to **JPM** in 2023
 - **NVDA** delivered the highest YTD return in the portfolio
 - **Technology** sector outperformed all other sectors in the dataset
-- Adding a composite index on `daily_prices (stock_id, price_date)` reduced query execution time significantly *(add your EXPLAIN screenshot in `/docs`)*
+- Adding a composite index on `daily_prices (stock_id, price_date)` reduced query execution time significantly
 
 ---
 
