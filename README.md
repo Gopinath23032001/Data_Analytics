@@ -7,7 +7,7 @@
 
 ## 📌 Project overview
 
-This project builds a relational database to track and analyze stock portfolio performance. It answers real business questions using advanced SQL — the same techniques tested in data analytics interviews.
+This project builds a relational database to track and analyze stock portfolio performance. It answers real business questions using advanced SQL.
 
 **Tools used:** MySQL 8.0 · MySQL Workbench · Python (yfinance)  
 **Dataset:** 2 years of daily price data for 10 stocks (AAPL, MSFT, GOOGL, TSLA, AMZN, META, NVDA, JPM, JNJ, V)
