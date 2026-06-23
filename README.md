@@ -30,6 +30,10 @@ central-level data.
 
 ---
 
+## The Problem
+
+Live Dashboard Link : https://gopinath-ipop.streamlit.app/
+
 ## Key Findings
 
 **1. Uttar Pradesh and Bihar carry the highest outage risk**
