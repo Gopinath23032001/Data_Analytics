@@ -126,8 +126,21 @@ def load_geojson():
     except Exception:
         return None
 
-
-
+@st.cache_data(ttl=3600)
+def load_forecast_scores():
+    conn = get_connection()
+    try:
+        return pd.read_sql("""
+            SELECT fs.state_id, s.state_name, s.region,
+                   fs.forecast_date, fs.risk_score, fs.risk_label,
+                   fs.max_temp_c, fs.rainfall_mm
+            FROM fact_forecast_scores fs
+            JOIN dim_state s ON s.state_id = fs.state_id
+            ORDER BY fs.forecast_date DESC, fs.risk_score DESC
+        """, conn, parse_dates=["forecast_date"])
+    except Exception:
+        return pd.DataFrame()
+    
 def risk_badge(label: str) -> str:
     colors = {"High": "🔴", "Medium": "🟡", "Low": "🟢"}
     return f"{colors.get(label, '⚪')} {label}"
@@ -244,6 +257,83 @@ def page_overview():
             plot_bgcolor="rgba(0,0,0,0)",
         )
         st.plotly_chart(fig2, use_container_width=True)
+
+        # ── Tomorrow's Forecast ──
+    st.divider()
+    st.subheader("🔮 Tomorrow's Risk Forecast")
+
+    forecast = load_forecast_scores()
+
+    if forecast.empty:
+        st.info(
+            "No forecast data yet. Run `extract/forecast.py` to generate "
+            "tomorrow's predictions."
+        )
+    else:
+        tomorrow    = forecast["forecast_date"].max()
+        f_today     = forecast[forecast["forecast_date"] == tomorrow].copy()
+
+        st.caption(
+            f"Forecast for **{tomorrow.date()}** — based on Open-Meteo weather "
+            f"forecast + latest outage load baseline"
+        )
+
+        fc1, fc2, fc3 = st.columns(3)
+        fc1.metric("🔴 High Risk Tomorrow",
+                   (f_today["risk_label"] == "High").sum())
+        fc2.metric("🟡 Medium Risk Tomorrow",
+                   (f_today["risk_label"] == "Medium").sum())
+        fc3.metric("🟢 Low Risk Tomorrow",
+                   (f_today["risk_label"] == "Low").sum())
+
+        col_fchart, col_ftable = st.columns([3, 2])
+
+        with col_fchart:
+            fig_f = px.bar(
+                f_today.sort_values("risk_score"),
+                x="risk_score", y="state_name",
+                orientation="h",
+                color="risk_label",
+                color_discrete_map=RISK_COLORS,
+                text="risk_score",
+                labels={"risk_score": "Forecast Score",
+                        "state_name": "State",
+                        "risk_label": "Risk Level"},
+                title="Predicted Risk Score by State",
+            )
+            fig_f.update_traces(
+                texttemplate="%{text:.3f}", textposition="outside"
+            )
+            fig_f.add_vline(x=0.33, line_dash="dot", line_color="gray")
+            fig_f.add_vline(x=0.66, line_dash="dot", line_color="gray")
+            fig_f.update_layout(
+                xaxis=dict(range=[0, 1.1]),
+                margin=dict(l=0, r=60, t=40, b=0),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                height=420,
+            )
+            st.plotly_chart(fig_f, use_container_width=True)
+
+        with col_ftable:
+            st.markdown("**State-by-state breakdown**")
+            for _, row in f_today.iterrows():
+                label = str(row["risk_label"])
+                badge = {"High": "🔴", "Medium": "🟡", "Low": "🟢"}.get(label, "⚪")
+                temp  = f"{row['max_temp_c']:.1f}°C" if pd.notna(row["max_temp_c"]) else "N/A"
+                rain  = f"{row['rainfall_mm']:.1f}mm" if pd.notna(row["rainfall_mm"]) else "N/A"
+                st.markdown(
+                    f"{badge} **{row['state_name']}** — {row['risk_score']:.3f} "
+                    f"<span style='color:var(--muted);font-size:0.85rem;'>"
+                    f"{temp} · {rain}</span>",
+                    unsafe_allow_html=True,
+                )
+
+        st.caption(
+            "⚠️ Forecast note: Score uses today's outage load as a fixed baseline "
+            "combined with tomorrow's predicted weather. It indicates weather-driven "
+            "risk, not a guarantee of outage events."
+        )
 
 
 def page_state():
@@ -554,6 +644,7 @@ def main():
              "📋 Methodology"],
         )
         st.divider()
+        st.caption("🔮 Forecast visible on National Overview page")
         st.caption("Data: CEA + Open-Meteo  |  Built with Python & Streamlit")
 
     if page == "🗺️ National Overview":
